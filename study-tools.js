@@ -80,6 +80,7 @@ let textbookPage = 1;
 let textbookLoad = null;
 let pdfLibraryLoad = null;
 let renderVersion = 0;
+let textbookSearchVersion = 0;
 let editorAction = null;
 let chatBusy = false;
 let flashcardsBusy = false;
@@ -311,17 +312,29 @@ async function searchTextbook(query) {
 }
 async function findInTextbook(query = document.getElementById('textbook-search').value.trim()) {
   if (!query) return;
-  const searchVersion = renderVersion;
+  const searchVersion = ++textbookSearchVersion;
+  const renderAtStart = renderVersion;
   const button = document.getElementById('textbook-find'); button.disabled = true;
   try {
     const match = await searchTextbook(query);
-    if (searchVersion !== renderVersion) return;
+    if (searchVersion !== textbookSearchVersion || renderAtStart !== renderVersion) return;
     if (!match) { showSuccessNotification('No matching text found. Try different keywords or a searchable PDF.'); return; }
     await renderTextbookPage(match.page, match.word);
+    if (searchVersion !== textbookSearchVersion) return;
     const start = Math.max(0, match.text.toLowerCase().indexOf(match.word) - 150);
     highlightTextInPDFViewer(match.text.slice(start, start + 1500), query, { name: currentTextbookSource(), pageStart: match.page, pageEnd: match.page });
-  } catch (error) { showSuccessNotification(error.message); }
-  finally { button.disabled = false; }
+  } catch (error) { if (searchVersion === textbookSearchVersion) showSuccessNotification(error.message); }
+  finally { if (searchVersion === textbookSearchVersion) button.disabled = false; }
+}
+function clearTextbookSearch() {
+  document.getElementById('textbook-search').value = '';
+  const findButton = document.getElementById('textbook-find');
+  const wasSearching = findButton.disabled;
+  ++textbookSearchVersion;
+  findButton.disabled = false;
+  document.getElementById('highlight-overlay')?.remove();
+  state.currentHighlightData = null;
+  if (wasSearching || document.querySelector('#pdf-viewer mark')) renderTextbookPage(textbookPage);
 }
 async function highlightInPDF(id) {
   const question = state.loadedQuestions[state.selectedSubject]?.[state.selectedPaper]?.find(item => String(item.question_id) === String(id));

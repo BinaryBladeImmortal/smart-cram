@@ -204,7 +204,7 @@
                         <button onclick="renderTextbookPage(textbookPage - 1)">Previous page</button>
                         <label>Page <input id="textbook-page" type="number" min="1" value="1" onchange="renderTextbookPage(this.value)"></label><span id="textbook-count"></span>
                         <button onclick="renderTextbookPage(textbookPage + 1)">Next page</button>
-                        <label>Search this section <input id="textbook-search" type="search" onkeydown="if(event.key === 'Enter') findInTextbook()"></label><button id="textbook-find" onclick="findInTextbook()">Find</button>
+                        <label>Search this section <input id="textbook-search" type="search" onkeydown="if(event.key === 'Enter') findInTextbook()"></label><button id="textbook-find" onclick="findInTextbook()">Find</button><button id="textbook-clear-search" onclick="clearTextbookSearch()">Clear</button>
                     </div>
                     <div class="pdf-content">
                         <div id="pdf-viewer" class="pdf-viewer">

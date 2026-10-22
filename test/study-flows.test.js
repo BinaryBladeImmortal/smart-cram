@@ -111,6 +111,53 @@ test('textbook search selects the best matching page and returns original text',
   assert.equal(await run(`searchTextbook('industrialization')`),null);
 });
 
+test('clearing textbook search removes highlights and preserves the open page',async t=>{
+  const {run,document}=await browser(t);
+  document.getElementById('textbook-search').value='French Revolution';
+  document.getElementById('pdf-viewer').innerHTML='<mark>French</mark>';
+  document.body.insertAdjacentHTML('beforeend','<div id="highlight-overlay"></div>');
+  run(`textbookPage=4;activeLibrarySection='jess302';state.currentHighlightData={answer:'old result'};renderTextbookPage=page=>{window.clearedPage=page;document.querySelector('#pdf-viewer mark')?.remove();};clearTextbookSearch()`);
+  assert.equal(document.getElementById('textbook-search').value,'');
+  assert.equal(document.querySelector('#highlight-overlay'),null);
+  assert.equal(document.querySelector('#pdf-viewer mark'),null);
+  assert.equal(run('state.currentHighlightData'),null);
+  assert.equal(run('window.clearedPage'),4);
+  assert.equal(run('activeLibrarySection'),'jess302');
+});
+
+test('clearing a textbook search with no results is harmless',async t=>{
+  const {run,document}=await browser(t);
+  document.getElementById('textbook-search').value='No matching phrase';
+  run(`textbookPage=5;activeLibrarySection='jess303';searchTextbook=async()=>null;window.renderedPage=null;renderTextbookPage=page=>{window.renderedPage=page;};`);
+  await run('findInTextbook()');
+  run('clearTextbookSearch()');
+  assert.equal(document.getElementById('textbook-search').value,'');
+  assert.equal(document.querySelector('#highlight-overlay'),null);
+  assert.equal(document.querySelector('#pdf-viewer mark'),null);
+  assert.equal(run('window.renderedPage'),null);
+  assert.equal(run('textbookPage'),5);
+  assert.equal(run('activeLibrarySection'),'jess303');
+});
+
+test('clearing an in-flight textbook search prevents stale results from returning',async t=>{
+  const {run,document,window}=await browser(t);
+  let resolveSearch;
+  const pendingSearch=new Promise(resolve=>{resolveSearch=resolve;});
+  document.getElementById('textbook-search').value='French Revolution';
+  run(`textbookPage=3;activeLibrarySection='jess301';searchTextbook=()=>window.pendingSearch;renderTextbookPage=page=>{window.clearedPage=page;};`);
+  window.pendingSearch=pendingSearch;
+  const find=run('findInTextbook()');
+  assert.equal(document.getElementById('textbook-find').disabled,true);
+  run('clearTextbookSearch()');
+  resolveSearch({page:8,text:'French Revolution began in 1789.',word:'French'});
+  await find;
+  assert.equal(run('window.clearedPage'),3);
+  assert.equal(document.querySelector('#highlight-overlay'),null);
+  assert.equal(document.getElementById('textbook-find').disabled,false);
+  assert.equal(run('textbookPage'),3);
+  assert.equal(run('activeLibrarySection'),'jess301');
+});
+
 test('video iframe sends the origin referrer required for embedded playback', async t=>{
   const {document}=await browser(t);
   assert.equal(document.getElementById('video-player-iframe').getAttribute('referrerpolicy'),'strict-origin-when-cross-origin');
